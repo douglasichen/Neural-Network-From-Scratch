@@ -6,10 +6,12 @@ const int TEST_DATA_SAMPLE_COUNT 	= 2800;
 const int DATA_PARAM_COUNT 			= 784;
 
 double train_data[TRAIN_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
-double train_label_data[TRAIN_DATA_SAMPLE_COUNT][10];
+bool train_label_data[TRAIN_DATA_SAMPLE_COUNT][10];
+int train_label_data_num[TRAIN_DATA_SAMPLE_COUNT];
 
 double test_data[TEST_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
-double test_label_data[TEST_DATA_SAMPLE_COUNT][10];
+bool test_label_data[TEST_DATA_SAMPLE_COUNT][10];
+int test_label_data_num[TEST_DATA_SAMPLE_COUNT];
 
 void init_helpers() {
 	srand(time(NULL));
@@ -39,6 +41,7 @@ void load_train_data(std::string dirname) {
 
 				if (col_num == 0) {
 					train_label_data[row_num][val] = 1;
+					train_label_data_num[row_num] = val;
 				}
 				else {
 					train_data[row_num][col_num-1] = val;
@@ -77,6 +80,7 @@ void load_test_data(std::string dirname) {
 				
 				if (col_num == 0) {
 					test_label_data[row_num][val] = 1;
+					test_label_data_num[row_num] = val;
 				}
 				else {
 					test_data[row_num][col_num-1] = val;
@@ -107,7 +111,7 @@ struct NeuralNetwork {
 		return input > 0 ? input : 0;
 	}
 
-	double deriv_ReLU(double input) {
+	double der_ReLU(double input) {
 		return input > 0;
 	}
 	
@@ -121,11 +125,16 @@ struct NeuralNetwork {
 		}
 
 		void init_rand_vals() {
-			bias = rand_range(-0.01, 0.01);
+			bias = rand_range(-0.02, 0.02);
 			for (double &weight : weights) {
-				weight = rand_range(-0.01, 0.01);
+				weight = rand_range(-0.02, 0.02);
 			}
 		}
+	};
+
+	struct BP_node {
+		int layer, i, j;
+		double A, B;
 	};
 
 	// neural network functionality
@@ -157,57 +166,84 @@ struct NeuralNetwork {
 		std::cout << "Neural Network " << this << " initialized." << std::endl;
 	}
 
+	void forward_prop(double sample[]) {
+		// FORWARDS
+		// init first layer with data
+		for (int i=0; i<layer_sizes[0]; i++) {
+			matrix[0][i].a = sample[i];
+		}
+
+		// forwards propagation
+		/*
+			Every layer activates with ReLU
+			EXCEPT last layer that activates with SoftMax
+		*/
+		for (int l=0; l<layer_count-1; l++) {
+			for (Neuron neuron : matrix[l]) {
+				for (int i=0; i<neuron.weights.size(); i++) {
+					matrix[l+1][i].z += neuron.weights[i]*neuron.a + matrix[l+1][i].bias;
+				}
+			}
+
+			if (l < layer_count-2) {
+				for (int i=0; i<layer_sizes[l+1]; i++) {
+					matrix[l+1][i].a = ReLU(matrix[l+1][i].z);
+				}
+			}
+		}
+
+		// add softmax activation
+		double max_z = DBL_MIN;
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			max_z = std::max(max_z, matrix[layer_count-1][i].z);
+		}
+		
+		double sum = 0;
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			sum += exp(matrix[layer_count-1][i].z - max_z);
+		}
+
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			matrix[layer_count-1][i].a = exp(matrix[layer_count-1][i].z - max_z - log(sum));
+		}
+	}
+
+	int predict(double sample[]) {
+		forward_prop(sample);
+		std::pair<double,int> max_arg={0,0};
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			max_arg = max(max_arg, {matrix[layer_count-1][i].a, i});
+		}
+		return max_arg.second;
+	}
+
 	double train_accuracy() {
-		return 0;
+		double accuracy = 0;
+		for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
+			if (predict(train_data[sample_index]) == train_label_data_num[sample_index]) {
+				accuracy++;
+			}
+		}
+		accuracy /= TRAIN_DATA_SAMPLE_COUNT;
+		return accuracy;
 	}
 
 	double test_accuracy() {
-		return 0;
+		double accuracy = 0;
+		for (int sample_index=0; sample_index<TEST_DATA_SAMPLE_COUNT; sample_index++) {
+			if (predict(test_data[sample_index]) == test_label_data_num[sample_index]) {
+				accuracy++;
+			}
+		}
+		accuracy /= TEST_DATA_SAMPLE_COUNT;
+		return accuracy;
 	}
 
 	void fit(double learning_rate, int epochs) {
 		for (int epoch=1; epoch<=epochs; epoch++) {
-			for (int sample_index=0; sample_index<1; sample_index++) {
-
-				// FORWARDS
-				// init first layer with data
-				for (int i=0; i<layer_sizes[0]; i++) {
-					matrix[0][i].a = train_data[sample_index][i];
-				}
-
-				// forwards propagation
-				/*
-					Every layer activates with ReLU
-					EXCEPT last layer that activates with SoftMax
-				*/
-				for (int l=0; l<layer_count-1; l++) {
-					for (Neuron neuron : matrix[l]) {
-						for (int i=0; i<neuron.weights.size(); i++) {
-							matrix[l+1][i].z += neuron.weights[i]*neuron.a + matrix[l+1][i].bias;
-						}
-					}
-
-					if (l < layer_count-2) {
-						for (int i=0; i<layer_sizes[l+1]; i++) {
-							matrix[l+1][i].a = ReLU(matrix[l+1][i].z);
-						}
-					}
-				}
-
-				// add softmax activation
-				double max_z = DBL_MIN;
-				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-					max_z = std::max(max_z, matrix[layer_count-1][i].z);
-				}
+			for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
 				
-				double sum = 0;
-				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-					sum += exp(matrix[layer_count-1][i].z - max_z);
-				}
-
-				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-					matrix[layer_count-1][i].a = exp(matrix[layer_count-1][i].z - max_z - log(sum));
-				}
+				forward_prop(train_data[sample_index]);
 
 				double cost = 0;
 				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
@@ -225,9 +261,57 @@ struct NeuralNetwork {
 				// init dC/da
 				// A = dC/da
 				// B = da/dz
-				// C = dz/dw
-				// D = dz/db
-				double A, B, C, D;
+				double A, B;
+				double sum = 0;
+				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+					sum += matrix[layer_count-1][i].a - train_label_data[sample_index][i];
+				}
+				A = 2.0 / layer_sizes[layer_count-1] * sum;
+				
+				// initialize values needed for back prop formulas
+				// std::vector<double> sum_a(layer_count);
+				// std::vector<std::vector<double>> sum_w(layer_count);
+				// for (int l=0; l<layer_count-1; l++) {
+				// 	for (int i=0; i<l)
+				// }
+				// for (int l=0; l<layer_count-1; l++) {
+				// 	for (int i=0; i<layer_sizes[l]; i++) {
+				// 		sum_a[l] += matrix[l][i].a;
+				// 		for (int j=0; j<layer_sizes[l+1]; j++) {
+				// 			sum_w[l] += matrix[l][i].weights[j];
+				// 		}
+				// 	}
+				// }
+
+				// std::stack<BP_node> dfs_stack;
+				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+				// 	for (int j=0; j<layer_sizes[layer_count-1]; j++) {
+				// 		B = (i == j ? matrix[layer_count-1][i].a * (1-matrix[layer_count-1][j].a) : 
+				// 						-matrix[layer_count-1][i].a * matrix[layer_count-1][j].a); 
+				// 		for (int k=0; k<layer_sizes[layer_count-2]; k++) {
+				// 			dfs_stack.push({layer_count-2, i, k, A, B});
+				// 		}
+				// 	}
+				// }
+
+				// while (dfs_stack.size()) {
+				// 	BP_node node = dfs_stack.top();
+				// 	dfs_stack.pop();
+
+				// 	double der_C2weight = node.A * node.B * sum_a[node.layer];
+				// 	matrix[node.layer][node.j].weights[node.i] -= learning_rate * der_C2weight;
+
+				// 	double der_C2b = node.A * node.B;
+				// 	matrix[node.layer+1][node.i].bias -= learning_rate * der_C2b;
+
+				// 	double der_C2a = node.A * node.B * sum_w[node.layer];
+				// 	if (node.layer > 0) {
+				// 		for (int k=0; k<layer_sizes[node.layer-1]; k++) {
+				// 			dfs_stack.push({node.layer-1, node.j, k, 
+				// 							der_C2a, der_ReLU(matrix[node.layer][node.j].z)});
+				// 		}
+				// 	}
+				// }
 
 				// reset for next run
 				for (int l=0; l<layer_count; l++) {
