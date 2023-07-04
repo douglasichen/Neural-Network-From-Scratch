@@ -2,7 +2,7 @@
 #include "csv2/reader.hpp"
 
 const int MAX_DATA_SAMPLE_COUNT = 42000;
-const int DATA_SAMPLE_COUNT = 4200;
+const int DATA_SAMPLE_COUNT = 20000;
 
 const double VALID_SAMPLE_PERCENTAGE = 0.2;
 const int TRAIN_DATA_SAMPLE_COUNT = int(DATA_SAMPLE_COUNT - DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
@@ -161,7 +161,7 @@ struct NeuralNetwork {
 		for (int l=0; l<layer_count-1; l++) {
 			// add biases
 			for (int i=0; i<layer_sizes[l+1]; i++) {
-				matrix[l+1][i].z = matrix[l+1][i].bias
+				matrix[l+1][i].z = matrix[l+1][i].bias;
 			}
 
 			// add weight * a
@@ -196,26 +196,32 @@ struct NeuralNetwork {
 	}
 
 	void back_prop(double learning_rate, int sample_index) {
-		double cost = 0;
-		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-			cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2.0);
-		}
-		cost /= layer_sizes[layer_count-1];
+		// double cost = 0;
+		// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+		// 	cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2.0);
+		// }
+		// cost /= layer_sizes[layer_count-1];
 
 		// dC / da
-		vector<double> der_C_a(layer_sizes[layer_count-1]);
+		std::vector<double> der_C_a(*max_element(layer_sizes.begin(), layer_sizes.end()));
 		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
 			der_C_a[i] = 2.0 / layer_sizes[layer_count-1] * 
-						(matrix[layer_count-1][i].a - train_label_data[i]);
+						(matrix[layer_count-1][i].a - train_label_data[sample_index][i]);
 		}
 
 		for (int l=layer_count-1; l>0; l--) {
 			// da / dz
-			vector<double> der_C_a_z(layer_sizes[l]);
-			for (int i=0; i<layer_sizes[l]; i++) {
-				for (int j=0; j<layer_sizes[l]; j++) {
-					der_C_a_z[j] += matrix[l][i].a * 
-								((i==j) - matrix[l][j].a) * der_C_a[i];
+			std::vector<double> der_C_a_z(layer_sizes[l]);
+			if (l == layer_count-1) {
+				for (int i=0; i<layer_sizes[l]; i++) {
+					for (int j=0; j<layer_sizes[l]; j++) {
+						der_C_a_z[j] += der_C_a[i] * matrix[l][i].a * ((i==j) - matrix[l][j].a);
+					}
+				}
+			}
+			else {
+				for (int i=0; i<layer_sizes[l]; i++) {
+					der_C_a_z[i] = der_C_a[i] * der_ReLU(matrix[l][i].z);
 				}
 			}
 
@@ -235,6 +241,7 @@ struct NeuralNetwork {
 
 			// dz / da[l-1]
 			for (int i=0; i<layer_sizes[l-1]; i++) {
+				der_C_a[i]=0;
 				for (int j=0; j<layer_sizes[l]; j++) {
 					der_C_a[i] += der_C_a_z[j] * matrix[l-1][i].weights[j];
 				}
@@ -281,74 +288,6 @@ struct NeuralNetwork {
 				forward_prop(train_data[sample_index]);
 				back_prop(learning_rate, sample_index);
 				
-				// double cost = 0;
-				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-				// 	cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2);
-				// }
-				// cost /= layer_sizes[layer_count-1];
-				
-				// 
-
-				// BACKWARDS
-				// C = 1/m * sum[ (a - y)^2 ]
-				// a = softmax(z)
-				// z = sum
-
-				// init dC/da
-				// A = dC/da
-				// B = da/dz
-				// double A, B;
-				// double sum = 0;
-				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-				// 	sum += matrix[layer_count-1][i].a - train_label_data[sample_index][i];
-				// }
-				// A = 2.0 / layer_sizes[layer_count-1] * sum;
-				
-				// initialize values needed for back prop formulas
-				// std::vector<double> sum_a(layer_count);
-				// std::vector<std::vector<double>> sum_w(layer_count);
-				// for (int l=0; l<layer_count-1; l++) {
-				// 	for (int i=0; i<l)
-				// }
-				// for (int l=0; l<layer_count-1; l++) {
-				// 	for (int i=0; i<layer_sizes[l]; i++) {
-				// 		sum_a[l] += matrix[l][i].a;
-				// 		for (int j=0; j<layer_sizes[l+1]; j++) {
-				// 			sum_w[l] += matrix[l][i].weights[j];
-				// 		}
-				// 	}
-				// }
-
-				// std::stack<BP_node> dfs_stack;
-				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-				// 	for (int j=0; j<layer_sizes[layer_count-1]; j++) {
-				// 		B = (i == j ? matrix[layer_count-1][i].a * (1-matrix[layer_count-1][j].a) : 
-				// 						-matrix[layer_count-1][i].a * matrix[layer_count-1][j].a); 
-				// 		for (int k=0; k<layer_sizes[layer_count-2]; k++) {
-				// 			dfs_stack.push({layer_count-2, i, k, A, B});
-				// 		}
-				// 	}
-				// }
-
-				// while (dfs_stack.size()) {
-				// 	BP_node node = dfs_stack.top();
-				// 	dfs_stack.pop();
-
-				// 	double der_C2weight = node.A * node.B * sum_a[node.layer];
-				// 	matrix[node.layer][node.j].weights[node.i] -= learning_rate * der_C2weight;
-
-				// 	double der_C2b = node.A * node.B;
-				// 	matrix[node.layer+1][node.i].bias -= learning_rate * der_C2b;
-
-				// 	double der_C2a = node.A * node.B * sum_w[node.layer];
-				// 	if (node.layer > 0) {
-				// 		for (int k=0; k<layer_sizes[node.layer-1]; k++) {
-				// 			dfs_stack.push({node.layer-1, node.j, k, 
-				// 							der_C2a, der_ReLU(matrix[node.layer][node.j].z)});
-				// 		}
-				// 	}
-				// }
-
 				// reset z,a for next run
 				for (int l=0; l<layer_count; l++) {
 					for (int i=0; i<layer_sizes[l]; i++) {
@@ -368,13 +307,13 @@ struct NeuralNetwork {
 
 
 int main() {
-	std::cout << std::fixed << std::setprecision(2) << "Program Begins." << std::endl;
+	std::cout << std::fixed << std::setprecision(4) << "Program Begins." << std::endl;
 	init_helpers();
 	NeuralNetwork NN = NeuralNetwork(3, {{DATA_PARAM_COUNT}, {10}, {10}});
 	
 	load_data("digit_recognizer/train.csv");
 
-	NN.fit(0.001, 2);
+	NN.fit(0.0001, 20);
 
 	std::cout << "Completed Program.\n";
 }
