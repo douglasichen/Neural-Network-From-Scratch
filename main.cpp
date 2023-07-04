@@ -1,25 +1,33 @@
 #include<bits/stdc++.h>
 #include "csv2/reader.hpp"
 
-const int TRAIN_DATA_SAMPLE_COUNT 	= 4200;
-const int TEST_DATA_SAMPLE_COUNT 	= 2800;
+const int MAX_DATA_SAMPLE_COUNT = 42000;
+const int DATA_SAMPLE_COUNT = 4200;
+
+const double VALID_SAMPLE_PERCENTAGE = 0.2;
+const int TRAIN_DATA_SAMPLE_COUNT = int(DATA_SAMPLE_COUNT - DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
+const int VALID_DATA_SAMPLE_COUNT = int(DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
+
+// const int TRAIN_DATA_SAMPLE_COUNT 	= 4200;
+// const int TEST_DATA_SAMPLE_COUNT 	= 2800;
 const int DATA_PARAM_COUNT 			= 784;
 
 double train_data[TRAIN_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
 bool train_label_data[TRAIN_DATA_SAMPLE_COUNT][10];
 int train_label_data_num[TRAIN_DATA_SAMPLE_COUNT];
 
-double test_data[TEST_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
-bool test_label_data[TEST_DATA_SAMPLE_COUNT][10];
-int test_label_data_num[TEST_DATA_SAMPLE_COUNT];
+double valid_data[VALID_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
+bool valid_label_data[VALID_DATA_SAMPLE_COUNT][10];
+int valid_label_data_num[VALID_DATA_SAMPLE_COUNT];
 
 void init_helpers() {
 	srand(time(NULL));
 }
 
-void load_train_data(std::string dirname) {
+void load_data(std::string dirname) {
 	// init train_label_data
 	memset(train_label_data, 0, sizeof(train_label_data));
+	memset(valid_label_data, 0, sizeof(valid_label_data));
 
 	csv2::Reader<csv2::delimiter<','>, 
                csv2::quote_character<'"'>, 
@@ -31,8 +39,8 @@ void load_train_data(std::string dirname) {
 
 		int row_num = 0, col_num = 0;
 		for (const auto row: csv) {
-			if (row_num+1 > TRAIN_DATA_SAMPLE_COUNT) break;
-
+			if (row_num+1 > DATA_SAMPLE_COUNT) break;
+			
 			col_num = 0;
 			for (const auto cell: row) {
 				std::string str;
@@ -40,59 +48,31 @@ void load_train_data(std::string dirname) {
 				int val = stoi(str);
 
 				if (col_num == 0) {
-					train_label_data[row_num][val] = 1;
-					train_label_data_num[row_num] = val;
+					
+					if (row_num+1 <= TRAIN_DATA_SAMPLE_COUNT) {
+						train_label_data[row_num][val] = 1;
+						train_label_data_num[row_num] = val;
+					}
+					else {
+						valid_label_data[row_num-TRAIN_DATA_SAMPLE_COUNT+1][val] = 1;
+						valid_label_data_num[row_num-TRAIN_DATA_SAMPLE_COUNT+1] = val;
+					}
 				}
 				else {
-					train_data[row_num][col_num-1] = val;
+					if (row_num+1 <= TRAIN_DATA_SAMPLE_COUNT) {
+						train_data[row_num][col_num-1] = val;
+					}
+					else {
+						valid_data[row_num-TRAIN_DATA_SAMPLE_COUNT+1][col_num-1] = val;
+					}
 				}
-
 				col_num++;
 			}
 			row_num++;
 		}
 	}
 
-	std::cout << "Training Data Loaded." << std::endl;
-}
-
-void load_test_data(std::string dirname) {
-	// init train_label_data
-	memset(test_label_data, 0, sizeof(test_label_data));
-
-	csv2::Reader<csv2::delimiter<','>, 
-               csv2::quote_character<'"'>, 
-               csv2::first_row_is_header<true>,
-               csv2::trim_policy::trim_whitespace> csv;
-               
-	if (csv.mmap(dirname)) {
-		// const auto header = csv.header();
-
-		int row_num = 0, col_num = 0;
-		for (const auto row: csv) {
-			if (row_num+1 > TEST_DATA_SAMPLE_COUNT) break;
-
-			col_num = 0;
-			for (const auto cell: row) {
-				std::string str;
-				cell.read_value(str);
-				int val = stoi(str);
-				
-				if (col_num == 0) {
-					test_label_data[row_num][val] = 1;
-					test_label_data_num[row_num] = val;
-				}
-				else {
-					test_data[row_num][col_num-1] = val;
-				}
-
-				col_num++;
-			}
-			row_num++;
-		}
-	}
-
-	std::cout << "Test Data Loaded." << std::endl;
+	std::cout << "Data Loaded." << std::endl;
 }
 
 double rand_range(double fMin, double fMax) {
@@ -179,12 +159,19 @@ struct NeuralNetwork {
 			EXCEPT last layer that activates with SoftMax
 		*/
 		for (int l=0; l<layer_count-1; l++) {
+			// add biases
+			for (int i=0; i<layer_sizes[l+1]; i++) {
+				matrix[l+1][i].z = matrix[l+1][i].bias
+			}
+
+			// add weight * a
 			for (Neuron neuron : matrix[l]) {
 				for (int i=0; i<neuron.weights.size(); i++) {
-					matrix[l+1][i].z += neuron.weights[i]*neuron.a + matrix[l+1][i].bias;
+					matrix[l+1][i].z += neuron.weights[i]*neuron.a;
 				}
 			}
 
+			// add ReLU activation
 			if (l < layer_count-2) {
 				for (int i=0; i<layer_sizes[l+1]; i++) {
 					matrix[l+1][i].a = ReLU(matrix[l+1][i].z);
@@ -208,6 +195,53 @@ struct NeuralNetwork {
 		}
 	}
 
+	void back_prop(double learning_rate, int sample_index) {
+		double cost = 0;
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2.0);
+		}
+		cost /= layer_sizes[layer_count-1];
+
+		// dC / da
+		vector<double> der_C_a(layer_sizes[layer_count-1]);
+		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+			der_C_a[i] = 2.0 / layer_sizes[layer_count-1] * 
+						(matrix[layer_count-1][i].a - train_label_data[i]);
+		}
+
+		for (int l=layer_count-1; l>0; l--) {
+			// da / dz
+			vector<double> der_C_a_z(layer_sizes[l]);
+			for (int i=0; i<layer_sizes[l]; i++) {
+				for (int j=0; j<layer_sizes[l]; j++) {
+					der_C_a_z[j] += matrix[l][i].a * 
+								((i==j) - matrix[l][j].a) * der_C_a[i];
+				}
+			}
+
+			// dz / db + learn
+			for (int i=0; i<layer_sizes[l]; i++) {\
+				double der_C_a_z_b = der_C_a_z[i];
+				matrix[l][i].bias -= der_C_a_z_b * learning_rate;
+			}
+
+			// dz / dw + learn
+			for (int i=0; i<layer_sizes[l-1]; i++) {
+				for (int j=0; j<layer_sizes[l]; j++) {
+					double der_C_a_z_w = der_C_a_z[j] * matrix[l-1][i].a;
+					matrix[l-1][i].weights[j] -= der_C_a_z_w * learning_rate;
+				}
+			}
+
+			// dz / da[l-1]
+			for (int i=0; i<layer_sizes[l-1]; i++) {
+				for (int j=0; j<layer_sizes[l]; j++) {
+					der_C_a[i] += der_C_a_z[j] * matrix[l-1][i].weights[j];
+				}
+			}
+		}
+	}
+
 	int predict(double sample[]) {
 		forward_prop(sample);
 		std::pair<double,int> max_arg={0,0};
@@ -228,14 +262,15 @@ struct NeuralNetwork {
 		return accuracy;
 	}
 
-	double test_accuracy() {
+	double valid_accuracy() {
 		double accuracy = 0;
-		for (int sample_index=0; sample_index<TEST_DATA_SAMPLE_COUNT; sample_index++) {
-			if (predict(test_data[sample_index]) == test_label_data_num[sample_index]) {
+		for (int sample_index=0; sample_index<VALID_DATA_SAMPLE_COUNT; sample_index++) {
+			int prediction = predict(valid_data[sample_index]);
+			if (prediction == valid_label_data_num[sample_index]) {
 				accuracy++;
 			}
 		}
-		accuracy /= TEST_DATA_SAMPLE_COUNT;
+		accuracy /= VALID_DATA_SAMPLE_COUNT;
 		return accuracy;
 	}
 
@@ -244,12 +279,13 @@ struct NeuralNetwork {
 			for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
 				
 				forward_prop(train_data[sample_index]);
-
-				double cost = 0;
-				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-					cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2);
-				}
-				cost /= layer_sizes[layer_count-1];
+				back_prop(learning_rate, sample_index);
+				
+				// double cost = 0;
+				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+				// 	cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2);
+				// }
+				// cost /= layer_sizes[layer_count-1];
 				
 				// 
 
@@ -261,12 +297,12 @@ struct NeuralNetwork {
 				// init dC/da
 				// A = dC/da
 				// B = da/dz
-				double A, B;
-				double sum = 0;
-				for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-					sum += matrix[layer_count-1][i].a - train_label_data[sample_index][i];
-				}
-				A = 2.0 / layer_sizes[layer_count-1] * sum;
+				// double A, B;
+				// double sum = 0;
+				// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
+				// 	sum += matrix[layer_count-1][i].a - train_label_data[sample_index][i];
+				// }
+				// A = 2.0 / layer_sizes[layer_count-1] * sum;
 				
 				// initialize values needed for back prop formulas
 				// std::vector<double> sum_a(layer_count);
@@ -313,7 +349,7 @@ struct NeuralNetwork {
 				// 	}
 				// }
 
-				// reset for next run
+				// reset z,a for next run
 				for (int l=0; l<layer_count; l++) {
 					for (int i=0; i<layer_sizes[l]; i++) {
 						matrix[l][i].z = matrix[l][i].a = 0;
@@ -323,7 +359,7 @@ struct NeuralNetwork {
 			// finished epoch	
 			std::cout << "Epoch " << epoch 
 					<< ": train_accuracy=" << train_accuracy()
-					<< ", test_accuracy=" << test_accuracy() 
+					<< ", valid_accuracy=" << valid_accuracy() 
 					<< std::endl;
 		}
 	}
@@ -336,8 +372,7 @@ int main() {
 	init_helpers();
 	NeuralNetwork NN = NeuralNetwork(3, {{DATA_PARAM_COUNT}, {10}, {10}});
 	
-	load_train_data("digit_recognizer/train.csv");
-	load_test_data("digit_recognizer/test.csv");
+	load_data("digit_recognizer/train.csv");
 
 	NN.fit(0.001, 2);
 
