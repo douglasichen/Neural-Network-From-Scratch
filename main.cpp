@@ -1,8 +1,10 @@
 #include<bits/stdc++.h>
+#include<fstream>
+// #include<fmt/core.h>
 #include "csv2/reader.hpp"
 
 const int MAX_DATA_SAMPLE_COUNT 		= 42000;
-const int DATA_SAMPLE_COUNT 			= 20000;
+const int DATA_SAMPLE_COUNT 			= 42000;
 
 const double VALID_SAMPLE_PERCENTAGE 	= 0.2;
 const int TRAIN_DATA_SAMPLE_COUNT 		= int(DATA_SAMPLE_COUNT - DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
@@ -78,6 +80,29 @@ double rand_range(double fMin, double fMax) {
 	return fMin + f * (fMax - fMin);
 }
 
+std::string uint64_t_to_bin(uint64_t u) {
+	std::string ret = "";
+	for (int e=0; e<64; e++) {
+		ret += (u&1 ? '1' : '0');
+		if (e == 51) ret += ' ';
+		u >>= 1;
+	}
+	std::reverse(ret.begin(), ret.end());
+	return ret;
+}
+
+double uint64_t_to_double(uint_64_t &val) {
+	double ret;
+	memcpy(&ret, &val, sizeof(val));
+	return ret;
+}
+
+uint_64_t double_to_uint64_t(double &val) {
+	uint64_t ret;
+	memcpy(&ret, &val, sizeof(val));
+	return ret;
+}
+
 struct NeuralNetwork {
 
 	// math functions
@@ -94,8 +119,12 @@ struct NeuralNetwork {
 	}
 	
 	double learning_rate_func(double learning_rate, int epoch) {
-		
-		return learning_rate;
+		if (epoch <= 10) return 0.0001;
+		else if (epoch <= 100) return 0.00001;
+		else if (epoch <= 200) return 0.000001;
+		return 0.0000001;
+
+		// return learning_rate;
 
 		// if (epoch <= 3) return 0.00011;
 		// else if (epoch <= 10) return 0.0001;
@@ -255,6 +284,8 @@ struct NeuralNetwork {
 				}
 			}
 		}
+
+		
 	}
 
 	int predict(double sample[]) {
@@ -308,10 +339,23 @@ struct NeuralNetwork {
 					<< ", valid_accuracy=" << valid_accuracy()
 					<< std::endl;
 		}
+
+		// save weights
+		std::ofstream file;
+		file.open("saved_weights.txt");
+		file << std::fixed << std::setprecision(16);
+		for (int l=0; l<layer_count-1; l++) {
+			for (int i=0; i<layer_sizes[l]; i++) {
+				for (int j=0; j<layer_sizes[l+1]; j++) {
+					file << matrix[l][i].weights[j] << ' ';
+				}
+				file << '\n';
+			}
+			file << '\n';
+		}
 	}
 
 };
-
 
 int main() {
 	std::cout << std::fixed << std::setprecision(4) << "Program Begins." << std::endl;
@@ -320,7 +364,7 @@ int main() {
 	
 	load_data("digit_recognizer/train.csv");
 
-	NN.fit(0.00005, 100);
+	NN.fit(0.00001, 1);
 
 	std::cout << "Completed Program.\n";
 }
