@@ -1,23 +1,21 @@
 #include<bits/stdc++.h>
 #include "csv2/reader.hpp"
 
-const int MAX_DATA_SAMPLE_COUNT = 42000;
-const int DATA_SAMPLE_COUNT = 20000;
+const int MAX_DATA_SAMPLE_COUNT 		= 42000;
+const int DATA_SAMPLE_COUNT 			= 20000;
 
-const double VALID_SAMPLE_PERCENTAGE = 0.2;
-const int TRAIN_DATA_SAMPLE_COUNT = int(DATA_SAMPLE_COUNT - DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
-const int VALID_DATA_SAMPLE_COUNT = int(DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
-
-// const int TRAIN_DATA_SAMPLE_COUNT 	= 4200;
-// const int TEST_DATA_SAMPLE_COUNT 	= 2800;
-const int DATA_PARAM_COUNT 			= 784;
+const double VALID_SAMPLE_PERCENTAGE 	= 0.2;
+const int TRAIN_DATA_SAMPLE_COUNT 		= int(DATA_SAMPLE_COUNT - DATA_SAMPLE_COUNT * VALID_SAMPLE_PERCENTAGE);
+const int VALID_DATA_SAMPLE_COUNT 		= DATA_SAMPLE_COUNT - TRAIN_DATA_SAMPLE_COUNT;
+const int DATA_PARAM_COUNT 				= 784;
+const int OUTPUT_COUNT 					= 10;
 
 double train_data[TRAIN_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
-bool train_label_data[TRAIN_DATA_SAMPLE_COUNT][10];
+bool train_label_data[TRAIN_DATA_SAMPLE_COUNT][OUTPUT_COUNT];
 int train_label_data_num[TRAIN_DATA_SAMPLE_COUNT];
 
 double valid_data[VALID_DATA_SAMPLE_COUNT][DATA_PARAM_COUNT];
-bool valid_label_data[VALID_DATA_SAMPLE_COUNT][10];
+bool valid_label_data[VALID_DATA_SAMPLE_COUNT][OUTPUT_COUNT];
 int valid_label_data_num[VALID_DATA_SAMPLE_COUNT];
 
 void init_helpers() {
@@ -95,6 +93,19 @@ struct NeuralNetwork {
 		return input > 0;
 	}
 	
+	double learning_rate_func(double learning_rate, int epoch) {
+		
+		return learning_rate;
+
+		// if (epoch <= 3) return 0.00011;
+		// else if (epoch <= 10) return 0.0001;
+		// else if (epoch <= 50) return 0.00003;
+		// else return 0.00001;
+
+		// double a = -learning_rate, b=0.1, c=32, d=learning_rate;
+		// return a / (1 + exp(-b * (epoch-c))) + d;
+	}
+
 	struct Neuron {
 		double bias;
 		double z;
@@ -112,26 +123,21 @@ struct NeuralNetwork {
 		}
 	};
 
-	struct BP_node {
-		int layer, i, j;
-		double A, B;
-	};
-
 	// neural network functionality
 	int layer_count;
 	std::vector<int> layer_sizes;
 	std::vector<std::vector<Neuron>> matrix;
-	NeuralNetwork(int _layer_count, std::vector<int> _layer_sizes) {
-		layer_count = _layer_count;
+	NeuralNetwork(std::vector<int> _layer_sizes) {
+		layer_count = _layer_sizes.size();
 		layer_sizes = _layer_sizes;
 
-		// set up matrix
+		// set up matrix sizes
 		matrix.resize(layer_count);
-		for (int i=0; i<layer_count; i++) {
-			matrix[i].resize(layer_sizes[i]);
-			if (i < layer_count-1) {
-				for (int j=0; j<layer_sizes[i]; j++) {
-					matrix[i][j].weights.resize(layer_sizes[i+1]);
+		for (int l=0; l<layer_count; l++) {
+			matrix[l].resize(layer_sizes[l]);
+			if (l < layer_count-1) {
+				for (int i=0; i<layer_sizes[l]; i++) {
+					matrix[l][i].weights.resize(layer_sizes[l+1]);
 				}
 			}
 		}
@@ -147,7 +153,6 @@ struct NeuralNetwork {
 	}
 
 	void forward_prop(double sample[]) {
-		// FORWARDS
 		// init first layer with data
 		for (int i=0; i<layer_sizes[0]; i++) {
 			matrix[0][i].a = sample[i];
@@ -185,17 +190,18 @@ struct NeuralNetwork {
 			max_z = std::max(max_z, matrix[layer_count-1][i].z);
 		}
 		
-		double sum = 0;
+		double log_sum = 0;
 		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-			sum += exp(matrix[layer_count-1][i].z - max_z);
+			log_sum += exp(matrix[layer_count-1][i].z - max_z);
 		}
+		log_sum = log(log_sum);
 
 		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
-			matrix[layer_count-1][i].a = exp(matrix[layer_count-1][i].z - max_z - log(sum));
+			matrix[layer_count-1][i].a = exp(matrix[layer_count-1][i].z - max_z - log_sum);
 		}
 	}
 
-	void back_prop(double learning_rate, int sample_index) {
+	void back_prop(double learning_rate, int sample_index, int epoch) {
 		// double cost = 0;
 		// for (int i=0; i<layer_sizes[layer_count-1]; i++) {
 		// 	cost += pow(matrix[layer_count-1][i].a - train_label_data[sample_index][i], 2.0);
@@ -228,22 +234,24 @@ struct NeuralNetwork {
 			// dz / db + learn
 			for (int i=0; i<layer_sizes[l]; i++) {\
 				double der_C_a_z_b = der_C_a_z[i];
-				matrix[l][i].bias -= der_C_a_z_b * learning_rate;
+				matrix[l][i].bias -= der_C_a_z_b * learning_rate_func(learning_rate, epoch);
 			}
 
 			// dz / dw + learn
 			for (int i=0; i<layer_sizes[l-1]; i++) {
 				for (int j=0; j<layer_sizes[l]; j++) {
 					double der_C_a_z_w = der_C_a_z[j] * matrix[l-1][i].a;
-					matrix[l-1][i].weights[j] -= der_C_a_z_w * learning_rate;
+					matrix[l-1][i].weights[j] -= der_C_a_z_w * learning_rate_func(learning_rate, epoch);
 				}
 			}
 
 			// dz / da[l-1]
-			for (int i=0; i<layer_sizes[l-1]; i++) {
-				der_C_a[i]=0;
-				for (int j=0; j<layer_sizes[l]; j++) {
-					der_C_a[i] += der_C_a_z[j] * matrix[l-1][i].weights[j];
+			if (l > 1) {
+				for (int i=0; i<layer_sizes[l-1]; i++) {
+					der_C_a[i]=0;
+					for (int j=0; j<layer_sizes[l]; j++) {
+						der_C_a[i] += der_C_a_z[j] * matrix[l-1][i].weights[j];
+					}
 				}
 			}
 		}
@@ -272,8 +280,7 @@ struct NeuralNetwork {
 	double valid_accuracy() {
 		double accuracy = 0;
 		for (int sample_index=0; sample_index<VALID_DATA_SAMPLE_COUNT; sample_index++) {
-			int prediction = predict(valid_data[sample_index]);
-			if (prediction == valid_label_data_num[sample_index]) {
+			if (predict(valid_data[sample_index]) == valid_label_data_num[sample_index]) {
 				accuracy++;
 			}
 		}
@@ -286,19 +293,19 @@ struct NeuralNetwork {
 			for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
 				
 				forward_prop(train_data[sample_index]);
-				back_prop(learning_rate, sample_index);
+				back_prop(learning_rate, sample_index, epoch);
 				
-				// reset z,a for next run
-				for (int l=0; l<layer_count; l++) {
-					for (int i=0; i<layer_sizes[l]; i++) {
-						matrix[l][i].z = matrix[l][i].a = 0;
-					}
-				}
+				// reset z,a for next run. Note: forward_prop resets it.
+				// for (int l=0; l<layer_count; l++) {
+				// 	for (int i=0; i<layer_sizes[l]; i++) {
+				// 		matrix[l][i].z = matrix[l][i].a = 0;
+				// 	}
+				// }
 			}
 			// finished epoch	
 			std::cout << "Epoch " << epoch 
 					<< ": train_accuracy=" << train_accuracy()
-					<< ", valid_accuracy=" << valid_accuracy() 
+					<< ", valid_accuracy=" << valid_accuracy()
 					<< std::endl;
 		}
 	}
@@ -309,11 +316,11 @@ struct NeuralNetwork {
 int main() {
 	std::cout << std::fixed << std::setprecision(4) << "Program Begins." << std::endl;
 	init_helpers();
-	NeuralNetwork NN = NeuralNetwork(3, {{DATA_PARAM_COUNT}, {10}, {10}});
+	NeuralNetwork NN = NeuralNetwork({{DATA_PARAM_COUNT}, {10}, {OUTPUT_COUNT}});
 	
 	load_data("digit_recognizer/train.csv");
 
-	NN.fit(0.0001, 20);
+	NN.fit(0.00005, 100);
 
 	std::cout << "Completed Program.\n";
 }
