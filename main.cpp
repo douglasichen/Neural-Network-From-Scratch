@@ -91,13 +91,13 @@ std::string uint64_t_to_bin(uint64_t u) {
 	return ret;
 }
 
-double uint64_t_to_double(uint_64_t &val) {
+double uint64_t_to_double(uint64_t val) {
 	double ret;
 	memcpy(&ret, &val, sizeof(val));
 	return ret;
 }
 
-uint_64_t double_to_uint64_t(double &val) {
+uint64_t double_to_uint64_t(double val) {
 	uint64_t ret;
 	memcpy(&ret, &val, sizeof(val));
 	return ret;
@@ -120,9 +120,9 @@ struct NeuralNetwork {
 	
 	double learning_rate_func(double learning_rate, int epoch) {
 		if (epoch <= 10) return 0.0001;
-		else if (epoch <= 100) return 0.00001;
-		else if (epoch <= 200) return 0.000001;
-		return 0.0000001;
+		else if (epoch <= 100) return 0.0000000001;
+		else if (epoch <= 200) return 0.00000000000001;
+		return 0.0000000000000001;
 
 		// return learning_rate;
 
@@ -145,9 +145,10 @@ struct NeuralNetwork {
 		}
 
 		void init_rand_vals() {
-			bias = rand_range(-0.02, 0.02);
+			double k = 0.00001;
+			bias = rand_range(-k, k);
 			for (double &weight : weights) {
-				weight = rand_range(-0.02, 0.02);
+				weight = rand_range(-k, k);
 			}
 		}
 	};
@@ -156,7 +157,7 @@ struct NeuralNetwork {
 	int layer_count;
 	std::vector<int> layer_sizes;
 	std::vector<std::vector<Neuron>> matrix;
-	NeuralNetwork(std::vector<int> _layer_sizes) {
+	void init(std::vector<int> _layer_sizes) {
 		layer_count = _layer_sizes.size();
 		layer_sizes = _layer_sizes;
 
@@ -319,7 +320,47 @@ struct NeuralNetwork {
 		return accuracy;
 	}
 
-	void fit(double learning_rate, int epochs) {
+	void save_network(std::string filename) {
+		std::ofstream file;
+		file.open(filename);
+		for (int l=0; l<layer_count-1; l++) {
+			for (int i=0; i<layer_sizes[l]; i++) {
+				for (int j=0; j<layer_sizes[l+1]; j++) {
+					file << double_to_uint64_t(matrix[l][i].weights[j]) << ' ';
+				}
+			}
+		}
+		for (int l=1; l<layer_count; l++) {
+			for (int i=0; i<layer_sizes[l]; i++) {
+				file << double_to_uint64_t(matrix[l][i].bias) << ' ';
+			}
+		}
+		file.close();
+	}
+
+	void load_network(std::string filename) {
+		std::ifstream file;
+		file.open(filename);
+
+		uint64_t inp;
+		for (int l=0; l<layer_count-1; l++) {
+			for (int i=0; i<layer_sizes[l]; i++) {
+				for (int j=0; j<layer_sizes[l+1]; j++) {
+					file >> inp;
+					matrix[l][i].weights[j] = uint64_t_to_double(inp);
+				}
+			}
+		}
+		for (int l=1; l<layer_count; l++) {
+			for (int i=0; i<layer_sizes[l]; i++) {
+				file >> inp;
+				matrix[l][i].bias = uint64_t_to_double(inp);
+			}
+		}
+		file.close();
+	}
+
+	void fit(double learning_rate, int epochs, std::string weights_filename) {
 		for (int epoch=1; epoch<=epochs; epoch++) {
 			for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
 				
@@ -340,19 +381,7 @@ struct NeuralNetwork {
 					<< std::endl;
 		}
 
-		// save weights
-		std::ofstream file;
-		file.open("saved_weights.txt");
-		file << std::fixed << std::setprecision(16);
-		for (int l=0; l<layer_count-1; l++) {
-			for (int i=0; i<layer_sizes[l]; i++) {
-				for (int j=0; j<layer_sizes[l+1]; j++) {
-					file << matrix[l][i].weights[j] << ' ';
-				}
-				file << '\n';
-			}
-			file << '\n';
-		}
+		save_weights(weights_filename);
 	}
 
 };
@@ -360,11 +389,20 @@ struct NeuralNetwork {
 int main() {
 	std::cout << std::fixed << std::setprecision(4) << "Program Begins." << std::endl;
 	init_helpers();
-	NeuralNetwork NN = NeuralNetwork({{DATA_PARAM_COUNT}, {10}, {OUTPUT_COUNT}});
+	NeuralNetwork NN;
 	
 	load_data("digit_recognizer/train.csv");
 
-	NN.fit(0.00001, 1);
+	for (int n=0; n<10; n++) {
+		NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+		NN.fit(0.1, 10, "saved_network_" + std::to_string(n) + ".txt");
+	}
+
+	// NN.fit(0.00001, 400, "weights");
+	// NN.load_network("saved_network_0.txt");
+	// std::cout << "train_accuracy=" << NN.train_accuracy()
+	// 			<< ", valid_accuracy=" << NN.valid_accuracy()
+	// 			<< std::endl;
 
 	std::cout << "Completed Program.\n";
 }
