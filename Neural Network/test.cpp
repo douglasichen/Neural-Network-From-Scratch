@@ -1,11 +1,9 @@
-#include <bits/stdc++.h>
-using namespace std;
-
-const int MAXN=100000000;
-int a[MAXN];
+#include <iostream>
+#include "NeuralNetwork.h"
 
 int main() {
-	long long i;
-	for (i=0; i<MAXN; i++) a[i]=100000;
-	cout << "DONE" << '\n';
+	Layer::Convolutional l1;
+	Layer l2;
+
+	std::cout <<l1.a;
 }
