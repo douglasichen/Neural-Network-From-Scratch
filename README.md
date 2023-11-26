@@ -1,5 +1,5 @@
 # Neural Network From Scratch
-This project contains an implementation of the gradient descent algorithm by dynamic programming.
+This project contains an implementation of the gradient descent algorithm using dynamic programming.
 This algorithm is tested on the MNIST dataset reaching an accuracy of ~92.5%.
 
 ## Dependencies
