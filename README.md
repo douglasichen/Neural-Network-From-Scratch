@@ -4,7 +4,6 @@ This algorithm is tested on the MNIST dataset reaching an accuracy around 92.5%
 
 Layers:
 1. Dense + ReLU activation
-2. _
-
+2. Softmax
 
 Run main file with c++14
