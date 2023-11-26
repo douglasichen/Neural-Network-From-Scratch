@@ -14,5 +14,3 @@ Language: C++ 17
 ## How to use
 1. Compile: ```g++ main.cpp```
 2. Run: ```./main```
-
-## testing
