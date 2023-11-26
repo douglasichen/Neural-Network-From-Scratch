@@ -3,8 +3,8 @@ This project contains an implementation of the gradient descent algorithm using 
 This algorithm is tested on the MNIST dataset reaching an accuracy of ~92.5%.
 
 ## Dependencies
-Compiler: GCC 10.3.0 \
-Language: C++ 17
+- Compiler: GCC 10.3.0
+- Language: C++ 17
 
 ## Initial Setup
 ### Layers
