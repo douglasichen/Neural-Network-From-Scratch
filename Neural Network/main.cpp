@@ -171,7 +171,8 @@ struct NeuralNetwork {
 		}
 
 		void init_rand_vals() {
-			double k = 0.00001;
+			// double k = 0.00001;
+			double k = 1;
 			bias = rand_range(-k, k);
 			for (double &weight : weights) {
 				weight = rand_range(-k, k);
@@ -417,6 +418,8 @@ struct NeuralNetwork {
 					<< ": train_accuracy=" << train_accuracy()
 					<< ", valid_accuracy=" << valid_accuracy()
 					<< std::endl;	
+			
+			
 		}
 
 		// for (int l=1; l<layer_count; l++) {
@@ -438,20 +441,29 @@ int main() {
 
 	load_data("digit_recognizer/train.csv");
 	
-	// NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
-	// NN.fit(0.001, 100, "saved_network.txt"); 
+	NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+	NN.fit(0.001, 5, "saved_network_x.txt"); 
 	
+
 	// for (int n=0; n<10; n++) {
 	// 	NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
 	// 	NN.fit(0.1, 10, "saved_network_" + std::to_string(n) + ".txt");
 	// }
 
-	NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+	// NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
 	// NN.fit(0.00001, 10, "saved_network.txt");
-	NN.load_network("saved_network.txt");
+	// NN.load_network("saved_network.txt");
+
+	
 	std::cout << "train_accuracy=" << NN.train_accuracy()
 				<< ", valid_accuracy=" << NN.valid_accuracy()
 				<< std::endl;
+	for (int l=0; l<NN.layer_count; l++) {
+		for (int i=0; i<10; i++) {
+			std::cout << NN.matrix[l][i].a << ' ';
+		}
+		std::cout << std::endl;
+	}
 
 	std::cout << "Completed Program.\n";
 }
