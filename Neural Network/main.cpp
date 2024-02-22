@@ -39,17 +39,21 @@ void load_data(std::string dirname) {
 
 		int row_num = 0, col_num = 0;
 		for (const auto row: csv) {
+			
 			if (row_num+1 > DATA_SAMPLE_COUNT) break;
+			// std::cout << "row: " << row_num << '\n';
 			
 			col_num = 0;
 			for (const auto cell: row) {
+				
+
 				std::string str;
 				cell.read_value(str);
 				int val = stoi(str);
 
 				if (col_num == 0) {
 					
-					if (row_num+1 <= TRAIN_DATA_SAMPLE_COUNT) {
+					if (row_num < TRAIN_DATA_SAMPLE_COUNT) {
 						train_label_data[row_num][val] = 1;
 						train_label_data_num[row_num] = val;
 					}
@@ -59,7 +63,7 @@ void load_data(std::string dirname) {
 					}
 				}
 				else {
-					if (row_num+1 <= TRAIN_DATA_SAMPLE_COUNT) {
+					if (row_num < TRAIN_DATA_SAMPLE_COUNT) {
 						train_data[row_num][col_num-1] = val;
 					}
 					else {
@@ -104,7 +108,6 @@ uint64_t double_to_uint64_t(double val) {
 }
 
 struct NeuralNetwork {
-
 	// math functions
 	double sigmoid(double input) {
 		return 1 / (1 + exp(-input));
@@ -119,10 +122,33 @@ struct NeuralNetwork {
 	}
 	
 	double learning_rate_func(double learning_rate, int epoch) {
-		if (epoch <= 10) return 0.0001;
-		else if (epoch <= 100) return 0.0000000001;
-		else if (epoch <= 200) return 0.00000000000001;
-		return 0.0000000000000001;
+		if (epoch <= 10) {
+			return 0.0001 - epoch*0.00001;
+		}
+		else if (epoch <= 100) {
+			return 0.00001 - (epoch-10)*0.0000001;
+		}
+		return 0.0000001;
+
+		// switch (epoch) {
+		// 	case 1: return 0.0001;
+		// 	case 2: return 0.00009;
+		// 	case 3: return 0.00008;
+		// 	case 4: return 0.00007;
+		// 	case 5: return 0.00006;
+		// 	case 6: return 0.00005;
+		// 	case 7: return 0.00004;
+		// 	case 8: return 0.00003;
+		// 	case 9: return 0.00002;
+		// 	case 10: return 0.00001;
+			
+		// }
+
+		// return learning_rate;
+		// if (epoch <= 10) return 0.0001;
+		// else if (epoch <= 100) return 0.0000000001;
+		// else if (epoch <= 200) return 0.00000000000001;
+		// return 0.0000000000000001;
 
 		// return learning_rate;
 
@@ -229,6 +255,9 @@ struct NeuralNetwork {
 		for (int i=0; i<layer_sizes[layer_count-1]; i++) {
 			matrix[layer_count-1][i].a = exp(matrix[layer_count-1][i].z - max_z - log_sum);
 		}
+
+
+		
 	}
 
 	void back_prop(double learning_rate, int sample_index, int epoch) {
@@ -316,6 +345,8 @@ struct NeuralNetwork {
 				accuracy++;
 			}
 		}
+
+		
 		accuracy /= VALID_DATA_SAMPLE_COUNT;
 		return accuracy;
 	}
@@ -360,13 +391,20 @@ struct NeuralNetwork {
 		file.close();
 	}
 
-	void fit(double learning_rate, int epochs, std::string weights_filename) {
+	void fit(double learning_rate, int epochs, std::string saved_network_filename) {
 		for (int epoch=1; epoch<=epochs; epoch++) {
 			for (int sample_index=0; sample_index<TRAIN_DATA_SAMPLE_COUNT; sample_index++) {
 				
 				forward_prop(train_data[sample_index]);
 				back_prop(learning_rate, sample_index, epoch);
 				
+				// for (int l=1; l<layer_count; l++) {
+					// for (int i=0; i<layer_sizes[l]; i++) {
+					// 	std::cout << matrix[l][i].a << ' ';
+					// }
+					// std::cout<<'\n';
+				// }
+
 				// reset z,a for next run. Note: forward_prop resets it.
 				// for (int l=0; l<layer_count; l++) {
 				// 	for (int i=0; i<layer_sizes[l]; i++) {
@@ -378,10 +416,17 @@ struct NeuralNetwork {
 			std::cout << "Epoch " << epoch 
 					<< ": train_accuracy=" << train_accuracy()
 					<< ", valid_accuracy=" << valid_accuracy()
-					<< std::endl;
+					<< std::endl;	
 		}
 
-		save_weights(weights_filename);
+		// for (int l=1; l<layer_count; l++) {
+		// 	for (int i=0; i<layer_sizes[l]; i++) {
+		// 		std::cout << matrix[l][i].bias << ' ';
+		// 	}
+		// 	std::cout<<'\n';
+		// }
+
+		save_network(saved_network_filename);
 	}
 
 };
@@ -390,19 +435,23 @@ int main() {
 	std::cout << std::fixed << std::setprecision(4) << "Program Begins." << std::endl;
 	init_helpers();
 	NeuralNetwork NN;
-	
+
 	load_data("digit_recognizer/train.csv");
+	
+	// NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+	// NN.fit(0.001, 100, "saved_network.txt"); 
+	
+	// for (int n=0; n<10; n++) {
+	// 	NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+	// 	NN.fit(0.1, 10, "saved_network_" + std::to_string(n) + ".txt");
+	// }
 
-	for (int n=0; n<10; n++) {
-		NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
-		NN.fit(0.1, 10, "saved_network_" + std::to_string(n) + ".txt");
-	}
-
-	// NN.fit(0.00001, 400, "weights");
-	// NN.load_network("saved_network_0.txt");
-	// std::cout << "train_accuracy=" << NN.train_accuracy()
-	// 			<< ", valid_accuracy=" << NN.valid_accuracy()
-	// 			<< std::endl;
+	NN.init({DATA_PARAM_COUNT, 10, OUTPUT_COUNT});
+	// NN.fit(0.00001, 10, "saved_network.txt");
+	NN.load_network("saved_network.txt");
+	std::cout << "train_accuracy=" << NN.train_accuracy()
+				<< ", valid_accuracy=" << NN.valid_accuracy()
+				<< std::endl;
 
 	std::cout << "Completed Program.\n";
 }
