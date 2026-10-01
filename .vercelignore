@@ -1,0 +1,6 @@
+.git
+.vscode
+digit_recognizer
+*.exe
+demo/build
+demo/__pycache__
