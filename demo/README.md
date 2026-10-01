@@ -1,5 +1,7 @@
 # Live drawing demo
 
+[Open the public demo](https://neural-network-from-scratch-one.vercel.app/).
+
 Draw one digit (0–9) using a mouse, touch, or pen. Predictions update during the stroke. The original C++ model runs in a Web Worker through WebAssembly, keeping the drawing interface responsive. No drawing or prediction request leaves the browser.
 
 ## Run locally
@@ -65,3 +67,9 @@ Compared the two distinct checkpoints found on the repository's current remote b
 The demo uses the winning root checkpoint. SHA-256: `7a68f774699fc949c74d85ceea82c3c5b093b961038cc5397cb88038302787b1`.
 
 This is an existing validation split, not a new independent test set. Freehand accuracy may differ. Evaluation streams CSV rows to the adapter instead of invoking the original training CSV loader; no original neural-network source is edited.
+
+## Verification results
+
+Native/WebAssembly comparison passed on 8,424 inputs: all predicted digits matched, with a maximum absolute probability difference of 2.33e-15. WASM validation accuracy remained 7,785/8,400 (92.68%).
+
+The production URL was verified without authentication. Its model assets matched the tested local files byte-for-byte. Browser drawing at desktop and mobile widths produced live predictions, the preview matched all 784 submitted pixels, and no browser errors were reported.

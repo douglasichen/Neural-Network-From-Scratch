@@ -2,6 +2,12 @@
 
 A C++ implementation of a multi-layer neural network trained on the MNIST handwritten digit dataset. The network achieves ~92.5% accuracy using gradient descent with dynamic programming for efficient backpropagation.
 
+## Live drawing demo
+
+[Try the public demo](https://neural-network-from-scratch-one.vercel.app/): draw a digit and see live predictions from the saved model. The original C++ network runs directly in your browser through WebAssembly; neural-network code and saved weights are unchanged.
+
+To run locally: `python3 demo/server.py`, then open http://127.0.0.1:8765. See [demo setup, build, and verification](demo/README.md).
+
 ## Features
 
 - **Architecture**: 784 → 10 → 10 (input → hidden → output)
