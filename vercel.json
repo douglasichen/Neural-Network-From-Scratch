@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "python3 demo/check_build.py",
+  "outputDirectory": "demo/static",
+  "headers": [
+    {"source": "/(.*)", "headers": [{"key": "X-Content-Type-Options", "value": "nosniff"}]},
+    {"source": "/network.wasm", "headers": [{"key": "Content-Type", "value": "application/wasm"}]}
+  ]
+}

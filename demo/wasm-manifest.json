@@ -1,0 +1,17 @@
+{
+  "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.15 (09f52557f0d48b65b8c724853ed8f4e8bf80e669)",
+  "sources": {
+    "main.cpp": "291d75d5211d830c1198de8a19eb4fcef3566b9ddc24d4745c4475e99ba6ab47",
+    "saved_network.txt": "7a68f774699fc949c74d85ceea82c3c5b093b961038cc5397cb88038302787b1",
+    "demo/wasm.cpp": "91506995cdc707d7f2896cdab90116e783ad2f8e416794f024c788eed5617e0c",
+    "demo/compat/bits/stdc++.h": "74b621b8de8d23dabb38a733bb3bdc6d2bdbd96c2f2775b272142b6c88e6d598",
+    "demo/build_wasm.py": "c4fc871bb598a4bdc6a1a103614f74dc7d0d623f6c4edef8d058470aad138afd",
+    "csv2/reader.hpp": "129acf76be8a61be62094af5c454c8269ad3d600512f078a11b924360dc0299a",
+    "csv2/mio.hpp": "39965cc9516411831e476f90edecc72ecc9988b985cae33816a2505058e1e576",
+    "csv2/parameters.hpp": "aa243c6a2198cf2cf2a13e6f7425787305215384d6acdaf4fd1009caf1005607"
+  },
+  "outputs": {
+    "demo/static/network.mjs": "249d845761e3364f35070de42cbf27b3c31e00733687a0d66debd2fe0a298cfe",
+    "demo/static/network.wasm": "bd1ba422b28b82457607208e583f444e0f1f369c9175ffd90c8d3539c683c8f2"
+  }
+}
