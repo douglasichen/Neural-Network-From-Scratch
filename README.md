@@ -1,5 +1,7 @@
 # Neural Network From Scratch
 
+**Validation accuracy: 92.68%** — 7,785 correct predictions out of 8,400 MNIST validation images.
+
 [Live demo](https://neural-network-from-scratch-one.vercel.app/) · [Demo setup](demo/README.md) · [Source](main.cpp)
 
 **784 inputs → 10 ReLU neurons → 10 softmax outputs**
