@@ -55,10 +55,10 @@ $$
 a_j^{(l)} = \max(0,z_j^{(l)}), \qquad 1 \le l < L.
 $$
 
-The output layer uses softmax, evaluated through a shifted exponential sum. These are the actual intermediate calculations in the code:
+The output layer uses softmax, evaluated through a shifted exponential sum. Let $d_{\min}$ denote the C++ constant `DBL_MIN`. These are the actual intermediate calculations in the code:
 
 $$
-m = \max\left(\texttt{DBL\_MIN}, z_0^{(L)},\ldots,z_{K-1}^{(L)}\right),
+m = \max\left(d_{\min}, z_0^{(L)},\ldots,z_{K-1}^{(L)}\right),
 $$
 
 $$
